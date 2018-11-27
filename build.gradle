@@ -42,4 +42,8 @@ dependencies {
 
     implementation('io.rsocket:rsocket-core:0.11.5')
     implementation('io.rsocket:rsocket-transport-netty:0.11.5')
+
+    implementation('com.squareup.moshi:moshi-kotlin:1.8.0')
+
+    implementation('com.github.zafarkhaja:java-semver:0.9.0')
 }
