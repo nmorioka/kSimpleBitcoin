@@ -12,11 +12,11 @@ class MessageManager {
         println("Initializing MessageManager...")
     }
 
-    fun build(msgType:MsgType, payload:String? = null): String {
-        val message = if ( payload != null ) {
-            Message(msg_type = msgType.rawValue, payload = payload)
+    fun build(msgType: MsgType, myPort: Int, payload: String? = null): String {
+        val message = if (payload != null) {
+            Message(msg_type = msgType.rawValue, my_port = myPort, payload = payload)
         } else {
-            Message(msg_type = msgType.rawValue)
+            Message(msg_type = msgType.rawValue, my_port = myPort)
         }
         return adapter.toJson(message)
     }
@@ -32,9 +32,9 @@ class MessageManager {
         } else if (Version.valueOf(message.version).greaterThan(Version.valueOf(Message.MY_VERSION))) {
             Response(result = "error", code = MsgResponseCode.ERR_VERSION_UNMATCH)
         } else if (message.msg_type == MsgType.CORE_LIST.rawValue) {
-            Response(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), payload = message.payload)
+            Response(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), port = message.my_port, payload = message.payload)
         } else {
-            Response(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, type = MsgType.fromRawValue(message.msg_type))
+            Response(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
         }
     }
 }
@@ -43,6 +43,7 @@ data class Message(
         val protocol: String = PROTOCOL_NAME,
         val version: String = MY_VERSION,
         val msg_type: Int,
+        val my_port: Int,
         val payload: String? = null
 ) {
     companion object {
@@ -52,13 +53,14 @@ data class Message(
 }
 
 data class Response(
-        val result:String,
+        val result: String,
         val code: MsgResponseCode,
         val type: MsgType? = null,
+        val port: Int? = null,
         val payload: String? = null
 )
 
-enum class MsgType(val rawValue :Int)  {
+enum class MsgType(val rawValue: Int) {
     NONE(-1),
     ADD(0),
     REMOVE(1),
@@ -75,7 +77,7 @@ enum class MsgType(val rawValue :Int)  {
     }
 }
 
-enum class MsgResponseCode(val rawValue :Int)  {
+enum class MsgResponseCode(val rawValue: Int) {
     ERR_PROTOCOL_UNMATCH(0),
     ERR_VERSION_UNMATCH(1),
     OK_WITH_PAYLOAD(2),
