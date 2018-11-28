@@ -12,11 +12,11 @@ class MessageManager {
         println("Initializing MessageManager...")
     }
 
-    fun build(msgType: MsgType, myPort: Int, payload: String? = null): String {
+    fun build(msgType: MsgType, myHost:String, myPort: Int, payload: String? = null): String {
         val message = if (payload != null) {
-            Message(msg_type = msgType.rawValue, my_port = myPort, payload = payload)
+            Message(msg_type = msgType.rawValue, my_host = myHost,  my_port = myPort, payload = payload)
         } else {
-            Message(msg_type = msgType.rawValue, my_port = myPort)
+            Message(msg_type = msgType.rawValue, my_host = myHost, my_port = myPort)
         }
         return adapter.toJson(message)
     }
@@ -32,9 +32,9 @@ class MessageManager {
         } else if (Version.valueOf(message.version).greaterThan(Version.valueOf(Message.MY_VERSION))) {
             Response(result = "error", code = MsgResponseCode.ERR_VERSION_UNMATCH)
         } else if (message.msg_type == MsgType.CORE_LIST.rawValue) {
-            Response(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), port = message.my_port, payload = message.payload)
+            Response(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), host = message.my_host, port = message.my_port, payload = message.payload)
         } else {
-            Response(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
+            Response(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, host = message.my_host, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
         }
     }
 }
@@ -43,6 +43,7 @@ data class Message(
         val protocol: String = PROTOCOL_NAME,
         val version: String = MY_VERSION,
         val msg_type: Int,
+        val my_host: String,
         val my_port: Int,
         val payload: String? = null
 ) {
@@ -56,6 +57,7 @@ data class Response(
         val result: String,
         val code: MsgResponseCode,
         val type: MsgType? = null,
+        val host: String? = null,
         val port: Int? = null,
         val payload: String? = null
 )

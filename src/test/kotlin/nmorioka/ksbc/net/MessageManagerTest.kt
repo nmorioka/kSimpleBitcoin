@@ -11,14 +11,14 @@ class MessageManagerTest {
     fun build_without_payload () {
         val manager = MessageManager();
 
-        assertEquals("{\"msg_type\":0,\"my_port\":200,\"protocol\":\"simple_bitcoin_protocol\",\"version\":\"0.1.0\"}", manager.build(MsgType.ADD, 200))
+        assertEquals("{\"msg_type\":0,\"my_host\":\"localhost\",\"my_port\":200,\"protocol\":\"simple_bitcoin_protocol\",\"version\":\"0.1.0\"}", manager.build(MsgType.ADD, "localhost", 200))
     }
 
     @Test
     fun build_with_payload () {
         val manager = MessageManager();
 
-        assertEquals("{\"msg_type\":2,\"my_port\":100,\"payload\":\"hogehoge\",\"protocol\":\"simple_bitcoin_protocol\",\"version\":\"0.1.0\"}", manager.build(MsgType.CORE_LIST, 100,"hogehoge"))
+        assertEquals("{\"msg_type\":2,\"my_host\":\"localhost\",\"my_port\":100,\"payload\":\"hogehoge\",\"protocol\":\"simple_bitcoin_protocol\",\"version\":\"0.1.0\"}", manager.build(MsgType.CORE_LIST, "localhost", 100,"hogehoge"))
     }
 
     @Test
