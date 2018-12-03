@@ -1,8 +1,5 @@
 package nmorioka.ksbc.p2p
 
-import com.squareup.moshi.JsonAdapter
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
 import io.rsocket.AbstractRSocket
 import io.rsocket.Payload
 import io.rsocket.RSocket
@@ -16,14 +13,10 @@ import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
 
 class ConnectionManager(val host: String, val port: Int) {
-    private val moshi = Moshi.Builder().build()
-
-    val type = Types.newParameterizedType(MutableSet::class.java,Peer::class.java)
-    private val adapter: JsonAdapter<MutableSet<Peer>> = moshi.adapter(type)
 
     private val messageManager = MessageManager()
 
-    private val coreNodeSet = mutableSetOf<Peer>()
+    private val coreNodeList = CoreNodeList()
 
     private var myConnectionHost: String? = null
     private var myConnectionPost: Int? = null
@@ -66,16 +59,11 @@ class ConnectionManager(val host: String, val port: Int) {
     }
 
     private fun addPeer(peer: Peer) {
-        println("Adding peer: ${peer}")
-        coreNodeSet.add(peer)
+        coreNodeList.add(peer)
     }
 
     private fun removePeer(peer: Peer) {
-        if (coreNodeSet.contains(peer)) {
-            println("Removing peer: ${peer}")
-            coreNodeSet.remove(peer)
-            println("Current Core list: ${coreNodeSet}")
-        }
+        coreNodeList.remove(peer)
     }
 
     private fun checkSelf(host: String, port: Int): Boolean {
@@ -104,8 +92,7 @@ class ConnectionManager(val host: String, val port: Int) {
                             if (checkSelf(h, p)) {
                                 return@let2
                             } else {
-                                val dumpList = adapter.toJson(coreNodeSet)
-                                val message = buildMessage(MsgType.CORE_LIST, dumpList)
+                                val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                                 sendMsgToAllPeer(message)
                             }
                         }
@@ -113,16 +100,13 @@ class ConnectionManager(val host: String, val port: Int) {
                             println("REMOVE request was received!! from ${h} ${p}")
                             removePeer(Peer(h, p))
 
-                            val dumpList = adapter.toJson(coreNodeSet)
-                            val message = buildMessage(MsgType.CORE_LIST, dumpList)
+                            val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                             sendMsgToAllPeer(message)
                         }
                         MsgType.PING -> return@let2
                         MsgType.REQUEST_CORE_LIST -> {
                             println("List for Core nodes was requested!!")
-                            // TODO send
-                            val dumpList = adapter.toJson(coreNodeSet)
-                            val message = buildMessage(MsgType.CORE_LIST, dumpList)
+                            val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                             sendMsg(Peer(h, p), message)
                         }
                         else -> {
@@ -138,9 +122,7 @@ class ConnectionManager(val host: String, val port: Int) {
                         // 信頼できるノードの鍵とかをセットしとく必要があるかも
                         println("Refresh the core node list...")
                         response.payload?.let {
-                            val newSet = adapter.fromJson(response.payload)
-                            println("latest core node list: ${newSet}")
-                            newSet?.forEach {it -> coreNodeSet.add(it)}
+                            coreNodeList.overwrite(it)
                         }
                     }
                     else -> {
@@ -163,7 +145,7 @@ class ConnectionManager(val host: String, val port: Int) {
 
     private fun sendMsgToAllPeer(message: String) {
         println("send_msg_to_all_peer was called!")
-        coreNodeSet.filter { peer -> !checkSelf(peer.host, peer.port) }
+        coreNodeList.getSet().filter { peer -> !checkSelf(peer.host, peer.port) }
                 .forEach { peer ->
                     sendMsg(peer, message)
                 }
@@ -176,20 +158,19 @@ class ConnectionManager(val host: String, val port: Int) {
      */
     private fun checkPeersConnection() {
         println("check_peers_connection was called")
-        val deadList = coreNodeSet.filter { peer ->
+        val deadList = coreNodeList.getSet().filter { peer ->
             !checkSelf(peer.host, peer.port) && !isAlive(peer)}.toList()
         if (deadList.isNotEmpty()) {
             println("Removing peer ${deadList}")
             deadList.forEach {
-                coreNodeSet.remove(it)
+                coreNodeList.getSet().remove(it)
             }
 
-            val dumpList = adapter.toJson(coreNodeSet)
-            val message = buildMessage(MsgType.CORE_LIST, dumpList)
+            val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
             sendMsgToAllPeer(message)
         }
 
-        println("current core node list: ${coreNodeSet}")
+        println("current core node list: ${coreNodeList.getSet()}")
 
         /* TODO
         self.send_msg_to_all_edge(msg)
