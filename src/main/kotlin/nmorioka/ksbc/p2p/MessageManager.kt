@@ -1,12 +1,12 @@
-package nmorioka.ksbc.net
+package nmorioka.ksbc.p2p
 
 import com.github.zafarkhaja.semver.Version
 import com.squareup.moshi.Moshi
 
 
 class MessageManager {
-    val moshi = Moshi.Builder().build()
-    val adapter = moshi.adapter(Message::class.java)
+    private val moshi = Moshi.Builder().build()
+    private val adapter = moshi.adapter(Message::class.java)
 
     init {
         println("Initializing MessageManager...")
@@ -14,7 +14,7 @@ class MessageManager {
 
     fun build(msgType: MsgType, myHost:String, myPort: Int, payload: String? = null): String {
         val message = if (payload != null) {
-            Message(msg_type = msgType.rawValue, my_host = myHost,  my_port = myPort, payload = payload)
+            Message(msg_type = msgType.rawValue, my_host = myHost, my_port = myPort, payload = payload)
         } else {
             Message(msg_type = msgType.rawValue, my_host = myHost, my_port = myPort)
         }

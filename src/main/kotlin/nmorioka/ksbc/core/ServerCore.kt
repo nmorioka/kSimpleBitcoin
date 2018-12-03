@@ -1,4 +1,4 @@
-package nmorioka.ksbc.server
+package nmorioka.ksbc.core
 
 class ServerCore {
     var serverState: ServerState = ServerState.INIT
@@ -20,7 +20,7 @@ class ServerCore {
     }
 }
 
-enum class ServerState(val rawValue :Int)  {
+enum class ServerState(val rawValue: Int) {
     INIT(0),
     STANDBY(1),
     CONNECTED_TO_NETWORK(2),

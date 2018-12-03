@@ -1,8 +1,10 @@
-package nmorioka.ksbc.net
+package nmorioka.ksbc.p2p
 
+import nmorioka.ksbc.p2p.MessageManager
+import nmorioka.ksbc.p2p.MsgResponseCode
+import nmorioka.ksbc.p2p.MsgType
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 
 class MessageManagerTest {
