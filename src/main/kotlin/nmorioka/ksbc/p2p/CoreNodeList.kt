@@ -21,6 +21,7 @@ class CoreNodeList {
         synchronized(lockObject) {
             println("Adding peer: ${peer}")
             nodeSet.add(peer)
+            println("Adding end: ${nodeSet}")
         }
     }
 

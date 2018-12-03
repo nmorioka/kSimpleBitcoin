@@ -37,13 +37,17 @@ class ConnectionManager(val host: String, val port: Int) {
     fun stop() {
         server?.shutdown()
 
-        // TODO 離脱要求の送信
+
+        let2(this.myConnectionHost, this.myConnectionPost) { h, p ->
+            val message = buildMessage(MsgType.REMOVE)
+            sendMsg(Peer(h, p), message)
+        }
+
+        // TODO timerの削除
         /*
         self.ping_timer_p.cancel()
         self.ping_timer_e.cancel()
         if self.my_c_host is not None:
-        msg = self.mm.build(MSG_REMOVE, self.port)
-        self.send_msg((self.my_c_host, self.my_c_port), msg)
         */
     }
 
