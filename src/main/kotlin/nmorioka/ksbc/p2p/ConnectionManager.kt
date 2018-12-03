@@ -11,6 +11,8 @@ import io.rsocket.util.DefaultPayload
 import nmorioka.ksbc.let2
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import java.util.*
+import kotlin.concurrent.timer
 
 class ConnectionManager(val host: String, val port: Int) {
 
@@ -22,6 +24,7 @@ class ConnectionManager(val host: String, val port: Int) {
     private var myConnectionPost: Int? = null
 
     private var server: Server? = null
+    private var pingTimer: Timer? = null
 
     init {
         addPeer(Peer(host, port))
@@ -31,6 +34,9 @@ class ConnectionManager(val host: String, val port: Int) {
         server = Server(host, port)
         server?.start {
             handleMessage(it)
+        }
+        pingTimer = timer("pingTimer", false, 0, 30000) {
+            checkPeersConnection()
         }
     }
 
@@ -43,11 +49,11 @@ class ConnectionManager(val host: String, val port: Int) {
             sendMsg(Peer(h, p), message)
         }
 
+        pingTimer?.cancel()
+
         // TODO timerの削除
         /*
-        self.ping_timer_p.cancel()
         self.ping_timer_e.cancel()
-        if self.my_c_host is not None:
         */
     }
 
@@ -155,7 +161,6 @@ class ConnectionManager(val host: String, val port: Int) {
                 }
     }
 
-
     /**
      * 接続されているCoreノード全ての生存確認を行う。クラスの外からは利用しない想定
      * この確認処理は定期的に実行される
@@ -176,9 +181,8 @@ class ConnectionManager(val host: String, val port: Int) {
 
         println("current core node list: ${coreNodeList.getSet()}")
 
-        /* TODO
+     /* TODO
         self.send_msg_to_all_edge(msg)
-        self.ping_timer_p = threading.Timer(PING_INTERVAL, self.__check_peers_connection)
         self.ping_timer_p.start()
         */
     }
@@ -244,7 +248,6 @@ private class Client(val host: String, val port: Int) {
                 .transport(TcpClientTransport.create(host, port))
                 .start()
                 .subscribe { rsocket ->
-                    println(rsocket)
                     rsocket.fireAndForget(DefaultPayload.create(message))
                             .subscribe()
                     println("fire gone")
