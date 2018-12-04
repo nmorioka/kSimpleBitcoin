@@ -1,13 +1,13 @@
 package nmorioka.ksbc
 
-import nmorioka.ksbc.core.ServerCore
+import nmorioka.ksbc.core.ClientCore
 import sun.misc.Signal
 import sun.misc.SignalHandler
 
 
 fun main(args: Array<String>) {
     var loopEnable = true
-    val sc = ServerCore("localhost", 50082)
+    val sc = ClientCore("localhost", 50100, "localhost", 50082)
 
     val handleObject = object : SignalHandler {
         override fun handle(signal: Signal) {

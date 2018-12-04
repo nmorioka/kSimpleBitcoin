@@ -1,6 +1,5 @@
 package nmorioka.ksbc.core
 
-import nmorioka.ksbc.let2
 import nmorioka.ksbc.p2p.ConnectionManager
 
 class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? = null, val coreNodePort: Int? = null) {
