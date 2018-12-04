@@ -21,6 +21,7 @@ class ConnectionManager(val host: String, val port: Int) {
     private val messageManager = MessageManager()
 
     private val coreNodeList = NodeList()
+    private val edgeNodeList = NodeList()
 
     private var myConnectionHost: String? = null
     private var myConnectionPost: Int? = null
@@ -39,6 +40,7 @@ class ConnectionManager(val host: String, val port: Int) {
         }
         pingTimer = timer("pingTimer", false, 0, 30000) {
             checkPeersConnection()
+            checkEdgesConnection()
         }
     }
 
@@ -52,11 +54,6 @@ class ConnectionManager(val host: String, val port: Int) {
         }
 
         pingTimer?.cancel()
-
-        // TODO timerの削除
-        /*
-        self.ping_timer_e.cancel()
-        */
     }
 
     fun joinNetwork(host: String ,port: Int) {
@@ -76,6 +73,14 @@ class ConnectionManager(val host: String, val port: Int) {
 
     private fun removePeer(peer: Peer) {
         coreNodeList.remove(peer)
+    }
+
+    private fun addEdgeNode(peer: Peer) {
+        edgeNodeList.add(peer)
+    }
+
+    private fun removeEdgeNode(peer: Peer) {
+        edgeNodeList.remove(peer)
     }
 
     private fun checkSelf(host: String, port: Int): Boolean {
@@ -106,6 +111,7 @@ class ConnectionManager(val host: String, val port: Int) {
                             } else {
                                 val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                                 sendMsgToAllPeer(message)
+                                sendMsgToAllEdge(message)
                             }
                         }
                         MsgType.REMOVE -> {
@@ -114,12 +120,24 @@ class ConnectionManager(val host: String, val port: Int) {
 
                             val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                             sendMsgToAllPeer(message)
+                            sendMsgToAllEdge(message)
                         }
                         MsgType.PING -> return@let2
                         MsgType.REQUEST_CORE_LIST -> {
                             println("List for Core nodes was requested!!")
                             val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                             sendMsg(Peer(h, p), message)
+                        }
+                        MsgType.ADD_AS_EDGE -> {
+                            val edge = Peer(h, p)
+                            addEdgeNode(edge)
+                            val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
+                            sendMsg(edge, message)
+                        }
+                        MsgType.REMOVE_EDGE -> {
+                            val edge = Peer(h, p)
+                            println("REMOVE_EDGE request was received!! from ${edge} ")
+                            removeEdgeNode(edge)
                         }
                         else -> {
                             println("recieved unknown command ${request.type}")
@@ -167,6 +185,14 @@ class ConnectionManager(val host: String, val port: Int) {
                 }
     }
 
+    private fun sendMsgToAllEdge(message: String) {
+        println("send_msg_to_all_edge was called! ")
+
+        edgeNodeList.getSet().forEach { peer ->
+            sendMsg(peer, message)
+        }
+    }
+
     /**
      * 接続されているCoreノード全ての生存確認を行う。クラスの外からは利用しない想定
      * この確認処理は定期的に実行される
@@ -192,6 +218,7 @@ class ConnectionManager(val host: String, val port: Int) {
 
                 val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
                 sendMsgToAllPeer(message)
+                sendMsgToAllEdge(message)
             }
             println("current core node list: ${coreNodeList.getSet()}")
         }
@@ -208,6 +235,33 @@ class ConnectionManager(val host: String, val port: Int) {
             Mono.just(Pair(peer, true))
         }.onErrorResume {
             Mono.just(Pair(peer, false))
+        }
+    }
+
+    /**
+     * 接続されているEdgeノード全ての生存確認を行う。クラスの外からは利用しない想定
+     * この確認処理は定期的に実行される
+     */
+    private fun checkEdgesConnection() {
+        println("check_edges_connection was called")
+
+        edgeNodeList.getSet().iterator().toFlux().flatMap { peer ->
+            isAlive(peer)
+        }.reduce(mutableSetOf<Peer>()) { deleteSet, pair ->
+            if (pair.second == false) {
+                deleteSet.add(pair.first)
+            }
+            deleteSet
+        }.subscribe { deleteSet ->
+            if (deleteSet.isNotEmpty()) {
+                println("Removing Edges ${deleteSet}")
+                deleteSet.forEach {
+                    edgeNodeList.getSet().remove(it)
+                }
+
+                print("current edge node list: ${edgeNodeList.getSet()}")
+            }
+            println("current core node list: ${coreNodeList.getSet()}")
         }
     }
 
