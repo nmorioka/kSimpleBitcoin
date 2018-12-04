@@ -20,7 +20,7 @@ class ConnectionManager(val host: String, val port: Int) {
 
     private val messageManager = MessageManager()
 
-    private val coreNodeList = CoreNodeList()
+    private val coreNodeList = NodeList()
 
     private var myConnectionHost: String? = null
     private var myConnectionPost: Int? = null
@@ -86,9 +86,9 @@ class ConnectionManager(val host: String, val port: Int) {
         return messageManager.build(type, this.host, this.port, payload)
     }
 
-    private fun handleMessage(response: Response) {
-        val pair = Pair(response.result, response.code)
-        when (Pair(response.result, response.code)) {
+    private fun handleMessage(request: Request) {
+        val pair = Pair(request.result, request.code)
+        when (Pair(request.result, request.code)) {
             Pair("error", MsgResponseCode.ERR_PROTOCOL_UNMATCH) -> {
                 println("Error: Protocol name is not matched")
             }
@@ -96,8 +96,8 @@ class ConnectionManager(val host: String, val port: Int) {
                 println("Error: Protocol version is not matched")
             }
             Pair("ok", MsgResponseCode.OK_WITHOUT_PAYLOAD) -> {
-                let2(response.host, response.port) { h, p ->
-                    when (response.type) {
+                let2(request.host, request.port) { h, p ->
+                    when (request.type) {
                         MsgType.ADD -> {
                             println("ADD node request was received!!")
                             addPeer(Peer(h, p))
@@ -122,18 +122,18 @@ class ConnectionManager(val host: String, val port: Int) {
                             sendMsg(Peer(h, p), message)
                         }
                         else -> {
-                            println("recieved unknown command ${response.type}")
+                            println("recieved unknown command ${request.type}")
                         }
                     }
                 }
             }
             Pair("ok", MsgResponseCode.OK_WITH_PAYLOAD) -> {
-                when (response.type) {
+                when (request.type) {
                     MsgType.CORE_LIST -> {
                         // TODO: 受信したリストをただ上書きしてしまうのは本来セキュリティ的には宜しくない。
                         // 信頼できるノードの鍵とかをセットしとく必要があるかも
                         println("Refresh the core node list...")
-                        response.payload?.let {
+                        request.payload?.let {
                             coreNodeList.overwrite(it)
                         }
                     }
@@ -220,7 +220,7 @@ private class Server(val host: String, val port: Int) {
 
     val messageManager = MessageManager()
 
-    fun start(execute: (response: Response) -> Unit) {
+    fun start(execute: (request: Request) -> Unit) {
         println("Waiting for the connection ...")
         serverDisposable = RSocketFactory.receive()
                 .acceptor { setupPayload, reactiveSocket ->

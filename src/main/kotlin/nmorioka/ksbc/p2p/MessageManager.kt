@@ -21,20 +21,20 @@ class MessageManager {
         return adapter.toJson(message)
     }
 
-    fun parse(json: String): Response? {
+    fun parse(json: String): Request? {
         val message = adapter.fromJson(json)
         if (message == null) {
             return null
         }
 
         return if (message.protocol != Message.PROTOCOL_NAME) {
-            Response(result = "error", code = MsgResponseCode.ERR_PROTOCOL_UNMATCH)
+            Request(result = "error", code = MsgResponseCode.ERR_PROTOCOL_UNMATCH)
         } else if (Version.valueOf(message.version).greaterThan(Version.valueOf(Message.MY_VERSION))) {
-            Response(result = "error", code = MsgResponseCode.ERR_VERSION_UNMATCH)
+            Request(result = "error", code = MsgResponseCode.ERR_VERSION_UNMATCH)
         } else if (message.msg_type == MsgType.CORE_LIST.rawValue) {
-            Response(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), host = message.my_host, port = message.my_port, payload = message.payload)
+            Request(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), host = message.my_host, port = message.my_port, payload = message.payload)
         } else {
-            Response(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, host = message.my_host, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
+            Request(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, host = message.my_host, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
         }
     }
 }
@@ -53,7 +53,7 @@ data class Message(
     }
 }
 
-data class Response(
+data class Request(
         val result: String,
         val code: MsgResponseCode,
         val type: MsgType? = null,

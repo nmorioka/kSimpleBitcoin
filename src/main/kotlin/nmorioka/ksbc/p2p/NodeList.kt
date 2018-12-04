@@ -4,7 +4,7 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 
-class CoreNodeList {
+class NodeList {
     private val lockObject = Object()
     private val nodeSet = mutableSetOf<Peer>()
 
@@ -74,7 +74,7 @@ class CoreNodeList {
     /**
      * リストのトップにあるPeerを返却する
      */
-    fun getCoreNodeInfo(): Peer {
+    fun getNodeInfo(): Peer {
         return nodeSet.first()
     }
 
