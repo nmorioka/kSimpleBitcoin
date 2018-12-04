@@ -9,7 +9,9 @@ import io.rsocket.transport.netty.server.NettyContextCloseable
 import io.rsocket.transport.netty.server.TcpServerTransport
 import io.rsocket.util.DefaultPayload
 import nmorioka.ksbc.let2
+import reactor.core.Disposable
 import reactor.core.publisher.Mono
+import reactor.core.publisher.toFlux
 import reactor.core.scheduler.Schedulers
 import java.util.*
 import kotlin.concurrent.timer
@@ -149,8 +151,12 @@ class ConnectionManager(val host: String, val port: Int) {
     private fun sendMsg(peer: Peer, message: String) {
         println("send to ${peer} ${message}")
         val client = Client(peer.host, peer.port)
-        // TODO error func
-        client.sendOnce(message)
+        client.send(message).subscribe( {
+            // do nothing
+        }, {
+            println("Connection failed for peer : ${peer}")
+            removePeer(peer)
+        })
     }
 
     private fun sendMsgToAllPeer(message: String) {
@@ -167,36 +173,42 @@ class ConnectionManager(val host: String, val port: Int) {
      */
     private fun checkPeersConnection() {
         println("check_peers_connection was called")
-        val deadList = coreNodeList.getSet().filter { peer ->
-            !checkSelf(peer.host, peer.port) && !isAlive(peer)}.toList()
-        if (deadList.isNotEmpty()) {
-            println("Removing peer ${deadList}")
-            deadList.forEach {
-                coreNodeList.getSet().remove(it)
+
+        coreNodeList.getSet().iterator().toFlux().filter { it ->
+            !checkSelf(it.host, it.port)
+        }.flatMap { peer ->
+            isAlive(peer)
+        }.reduce(mutableSetOf<Peer>()) { deleteSet, pair ->
+            if (pair.second == false) {
+                deleteSet.add(pair.first)
             }
+            deleteSet
+        }.subscribe { deleteSet ->
+            if (deleteSet.isNotEmpty()) {
+                println("Removing peer ${deleteSet}")
+                deleteSet.forEach {
+                    coreNodeList.getSet().remove(it)
+                }
 
-            val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
-            sendMsgToAllPeer(message)
+                val message = buildMessage(MsgType.CORE_LIST, coreNodeList.dump())
+                sendMsgToAllPeer(message)
+            }
+            println("current core node list: ${coreNodeList.getSet()}")
         }
-
-        println("current core node list: ${coreNodeList.getSet()}")
-
-     /* TODO
-        self.send_msg_to_all_edge(msg)
-        self.ping_timer_p.start()
-        */
     }
 
     /**
      * 有効ノード確認メッセージの送信
      */
-    private fun isAlive(peer: Peer): Boolean {
+    private fun isAlive(peer: Peer): Mono<Pair<Peer, Boolean>> {
         val client = Client(peer.host, peer.port)
         val message = buildMessage(MsgType.PING)
-        // TODO error...
-        client.sendOnce(message)
 
-        return true
+        return client.send(message).flatMap { t ->
+            Mono.just(Pair(peer, true))
+        }.onErrorResume {
+            Mono.just(Pair(peer, false))
+        }
     }
 
 }
@@ -204,13 +216,13 @@ class ConnectionManager(val host: String, val port: Int) {
 data class Peer(val host: String, val port: Int)
 
 private class Server(val host: String, val port: Int) {
-    var serverChannel: NettyContextCloseable? = null
+    var serverDisposable: Disposable? = null
 
     val messageManager = MessageManager()
 
     fun start(execute: (response: Response) -> Unit) {
         println("Waiting for the connection ...")
-        val server = RSocketFactory.receive()
+        serverDisposable = RSocketFactory.receive()
                 .acceptor { setupPayload, reactiveSocket ->
                     println("Connected by")
                     Mono.just<RSocket>(
@@ -230,56 +242,23 @@ private class Server(val host: String, val port: Int) {
                 .start()
                 .subscribeOn(Schedulers.elastic())
                 .subscribe()
-
-        // go to subscribe
-        // serverChannel = server.block()
     }
 
     fun shutdown() {
-        // serverChannel?.dispose()
+        serverDisposable?.dispose()
     }
 
 }
-
 
 private class Client(val host: String, val port: Int) {
-    fun sendOnce(message: String) {
-        RSocketFactory.connect()
+
+    fun send(message: String): Mono<Void> {
+        return RSocketFactory.connect()
                 .transport(TcpClientTransport.create(host, port))
                 .start()
-                .subscribe { rsocket ->
-                    rsocket.fireAndForget(DefaultPayload.create(message))
-                            .subscribe()
-                    println("fire gone")
+                .flatMap { t: RSocket? ->
+                    t?.fireAndForget(DefaultPayload.create(message))
                 }
-    }
-
-    fun close() {
-    }
-
-}
-
-private class Client2(val host: String, val port: Int) {
-    val socket = RSocketFactory.connect()
-            .transport(TcpClientTransport.create(host, port))
-            .start()
-            .block()
-
-    fun sendOnce(message: String) {
-        socket?.let {
-            it.fireAndForget(DefaultPayload.create(message))
-//                    .onErrorMap { e ->
-//                        println(e)
-//                        return e.message
-//                    }
-                    .doOnNext{ println(it) }
-                    .block()
-            it.dispose()
-        }
-    }
-
-    fun close() {
-        socket?.dispose()
     }
 
 }

@@ -45,6 +45,7 @@ class CoreNodeList {
     fun overwrite(newSet: MutableSet<Peer>) {
         synchronized(lockObject) {
             println("core node list will be going to overwrite")
+            nodeSet.clear()
             newSet?.forEach {it -> nodeSet.add(it)}
             println("Current Core list: ${nodeSet}")
         }
