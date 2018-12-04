@@ -16,7 +16,7 @@ import reactor.core.scheduler.Schedulers
 import java.util.*
 import kotlin.concurrent.timer
 
-class ConnectionManager(val host: String, val port: Int) {
+class ConnectionManager(val host: String, val port: Int, val callback: (Request, Peer?) -> Unit) {
 
     private val messageManager = MessageManager()
 
@@ -140,7 +140,8 @@ class ConnectionManager(val host: String, val port: Int) {
                             removeEdgeNode(edge)
                         }
                         else -> {
-                            println("recieved unknown command ${request.type}")
+                            println("callback..")
+                            callback(request, Peer(h, p))
                         }
                     }
                 }
@@ -156,12 +157,13 @@ class ConnectionManager(val host: String, val port: Int) {
                         }
                     }
                     else -> {
-                        // TODO
-//                        self.callback((result, reason, cmd, peer_port, payload), None)
-//                        return
-                        println("else..")
+                        println("callback..")
+                        callback(request, null)
                     }
                 }
+            } else -> {
+                println("recieved unknown command ${request.type}")
+
             }
         }
     }
@@ -267,7 +269,7 @@ class ConnectionManager(val host: String, val port: Int) {
 
 }
 
-class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: String, var myCorePort: Int) {
+class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: String, var myCorePort: Int, val callback: (Request) -> Unit) {
     private val messageManager = MessageManager()
 
     private val coreNodeList = NodeList()
@@ -334,10 +336,8 @@ class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: St
                         }
                     }
                     else -> {
-                        // TODO
-//                        self.callback((result, reason, cmd, peer_port, payload), None)
-//                        return
-                        println("else..")
+                        println("callback..")
+                        this.callback(request)
                     }
                 }
             }
