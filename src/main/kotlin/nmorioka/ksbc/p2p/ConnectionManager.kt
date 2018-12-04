@@ -267,6 +267,136 @@ class ConnectionManager(val host: String, val port: Int) {
 
 }
 
+class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: String, var myCorePort: Int) {
+    private val messageManager = MessageManager()
+
+    private val coreNodeList = NodeList()
+
+    private var server: Server? = null
+    private var pingTimer: Timer? = null
+
+    fun start() {
+        server = Server(host, port)
+        server?.start {
+            handleMessage(it)
+        }
+        pingTimer = timer("pingTimer", false, 0, 30000) {
+            checkPeersConnection()
+        }
+    }
+
+    fun stop() {
+        server?.shutdown()
+
+        pingTimer?.cancel()
+    }
+
+    fun connectToCoreNode() {
+        connectToP2PNW(myCoreHost, myCorePort)
+    }
+
+    private fun connectToP2PNW(host: String, port: Int) {
+        val message = buildMessage(MsgType.ADD_AS_EDGE)
+        sendMsg(Peer(host, port), message)
+    }
+
+    private fun buildMessage(type: MsgType, payload: String? = null): String {
+        return messageManager.build(type, this.host, this.port, payload)
+    }
+
+    private fun handleMessage(request: Request) {
+        val pair = Pair(request.result, request.code)
+        when (Pair(request.result, request.code)) {
+            Pair("error", MsgResponseCode.ERR_PROTOCOL_UNMATCH) -> {
+                println("Error: Protocol name is not matched")
+            }
+            Pair("error", MsgResponseCode.ERR_VERSION_UNMATCH) -> {
+                println("Error: Protocol version is not matched")
+            }
+            Pair("ok", MsgResponseCode.OK_WITHOUT_PAYLOAD) -> {
+                let2(request.host, request.port) { h, p ->
+                    when (request.type) {
+                        MsgType.PING -> return@let2
+                        else -> {
+                            // 接続情報以外のメッセージしかEdgeノードで処理することは想定していない
+                            println("Edge node does not have functions for this message!")
+                        }
+                    }
+                }
+            }
+            Pair("ok", MsgResponseCode.OK_WITH_PAYLOAD) -> {
+                when (request.type) {
+                    MsgType.CORE_LIST -> {
+                        // Coreノードに依頼してCoreノードのリストを受け取る口だけはある
+                        println("Refresh the core node list...")
+                        request.payload?.let {
+                            coreNodeList.overwrite(it)
+                        }
+                    }
+                    else -> {
+                        // TODO
+//                        self.callback((result, reason, cmd, peer_port, payload), None)
+//                        return
+                        println("else..")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun sendMsg(peer: Peer, message: String) {
+        println("send to ${peer} ${message}")
+        val client = Client(peer.host, peer.port)
+        client.send(message).subscribe( {
+            // do nothing
+        }, {
+            println("Connection failed for peer : ${peer}")
+            coreNodeList.remove(peer)
+            println("Tring to connect into P2P network...")
+            if (coreNodeList.getLength() > 0) {
+                val new = coreNodeList.getNodeInfo()
+                this.myCoreHost = new.host
+                this.myCorePort = new.port
+                connectToCoreNode()
+                sendMsg(new, message)
+            } else {
+                println("No core node found in our list...")
+                pingTimer?.cancel()
+            }
+        })
+    }
+
+    /**
+     * 生存確認メッセージの送信処理実体。中で確認処理は定期的に実行し続けられる
+     * @param peer 送信確認メッセージの送り先となるノードの接続情報（IPアドレスとポート番号）
+     */
+    private fun checkPeersConnection() {
+        println("check_peers_connection was called")
+
+        val peer = Peer(myCoreHost, myCorePort)
+
+        val client = Client(peer.host, peer.port)
+        val message = buildMessage(MsgType.PING)
+
+        client.send(message).subscribe({}, { error ->
+            println("Connection failed for peer : ${peer}")
+            coreNodeList.remove(peer)
+            println("Tring to connect into P2P network...")
+            if (coreNodeList.getLength() > 0) {
+                val new = coreNodeList.getNodeInfo()
+                this.myCoreHost = new.host
+                this.myCorePort = new.port
+                connectToCoreNode()
+            } else {
+                println("No core node found in our list...")
+                pingTimer?.cancel()
+            }
+        })
+    }
+
+}
+
+
 data class Peer(val host: String, val port: Int)
 
 private class Server(val host: String, val port: Int) {
