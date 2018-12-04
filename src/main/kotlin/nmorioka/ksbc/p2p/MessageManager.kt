@@ -31,7 +31,7 @@ class MessageManager {
             Request(result = "error", code = MsgResponseCode.ERR_PROTOCOL_UNMATCH)
         } else if (Version.valueOf(message.version).greaterThan(Version.valueOf(Message.MY_VERSION))) {
             Request(result = "error", code = MsgResponseCode.ERR_VERSION_UNMATCH)
-        } else if (message.msg_type == MsgType.CORE_LIST.rawValue) {
+        } else if (MsgType.fromRawValue(message.msg_type).inType(MsgType.CORE_LIST, MsgType.NEW_TRANSACTION, MsgType.NEW_BLOCK, MsgType.RSP_FULL_CHAIN, MsgType.ENHANCED)) {
             Request(result = "ok", code = MsgResponseCode.OK_WITH_PAYLOAD, type = MsgType.fromRawValue(message.msg_type), host = message.my_host, port = message.my_port, payload = message.payload)
         } else {
             Request(result = "ok", code = MsgResponseCode.OK_WITHOUT_PAYLOAD, host = message.my_host, port = message.my_port, type = MsgType.fromRawValue(message.msg_type))
@@ -70,12 +70,27 @@ enum class MsgType(val rawValue: Int) {
     REQUEST_CORE_LIST(3),
     PING(4),
     ADD_AS_EDGE(5),
-    REMOVE_EDGE(6);
+    REMOVE_EDGE(6),
+    NEW_TRANSACTION(7),
+    NEW_BLOCK(8),
+    REQUEST_FULL_CHAIN(9),
+    RSP_FULL_CHAIN(10),
+    ENHANCED(11);
 
     companion object {
         fun fromRawValue(rawValue: Int): MsgType {
             return values().firstOrNull { it.rawValue == rawValue } ?: NONE
         }
+
+    }
+
+    fun inType(vararg types: MsgType): Boolean {
+        types.forEach { type ->
+            if (this.rawValue == type.rawValue) {
+                return true
+            }
+        }
+        return false
     }
 }
 
