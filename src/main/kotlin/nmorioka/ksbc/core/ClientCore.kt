@@ -1,9 +1,6 @@
 package nmorioka.ksbc.core
 
-import nmorioka.ksbc.p2p.ConnectionManager4Edge
-import nmorioka.ksbc.p2p.MsgType
-import nmorioka.ksbc.p2p.MyProtocolMessageHandler
-import nmorioka.ksbc.p2p.Request
+import nmorioka.ksbc.p2p.*
 
 class ClientCore(val myHost: String, val myPort:Int, val coreNodeHost: String, val coreNodePort: Int) {
     var clientState: ClientState
@@ -66,9 +63,16 @@ class ClientCore(val myHost: String, val myPort:Int, val coreNodeHost: String, v
      */
     fun getMyProtocolMessage(): MutableList<String> {
         return this.myProtocolMessageStore
-        if (myProtocolMessageStore.isNotEmpty()) {
+    }
 
-        }
+    /***
+     * 接続中のCoreノードに対してメッセージを送付する（上位UI層向け
+     * @param type MessageManagerで規定のメッセージ種別を指定する
+     * @param message メッセージ本文。文字列化されたJSONを想定
+     */
+    fun sendMessageToMyCoreNode(type: MsgType, message: String) {
+        val newMessage = cm.getMsgText(type, message)
+        cm.sendMsg(Peer(coreNodeHost, coreNodePort), newMessage)
     }
 
     /**

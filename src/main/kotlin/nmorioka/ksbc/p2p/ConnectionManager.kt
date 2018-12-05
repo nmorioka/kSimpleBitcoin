@@ -92,6 +92,8 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
     }
 
     private fun handleMessage(request: Request) {
+        println("handle message : [${request}]")
+
         val pair = Pair(request.result, request.code)
         when (Pair(request.result, request.code)) {
             Pair("error", MsgResponseCode.ERR_PROTOCOL_UNMATCH) -> {
@@ -157,8 +159,10 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
                         }
                     }
                     else -> {
-                        println("callback..")
-                        callback(request, null)
+                        let2(request.host, request.port) { h, p ->
+                            println("callback..")
+                            callback(request, Peer(h, p))
+                        }
                     }
                 }
             } else -> {
@@ -168,7 +172,7 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
         }
     }
 
-    private fun sendMsg(peer: Peer, message: String) {
+    fun sendMsg(peer: Peer, message: String) {
         println("send to ${peer} ${message}")
         val client = Client(peer.host, peer.port)
         client.send(message).subscribe( {
@@ -179,7 +183,7 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
         })
     }
 
-    private fun sendMsgToAllPeer(message: String) {
+    fun sendMsgToAllPeer(message: String) {
         println("send_msg_to_all_peer was called!")
         coreNodeList.getSet().filter { peer -> !checkSelf(peer.host, peer.port) }
                 .forEach { peer ->
@@ -187,12 +191,25 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
                 }
     }
 
-    private fun sendMsgToAllEdge(message: String) {
+    fun sendMsgToAllEdge(message: String) {
         println("send_msg_to_all_edge was called! ")
 
         edgeNodeList.getSet().forEach { peer ->
             sendMsg(peer, message)
         }
+    }
+
+    /**
+     * 指定したメッセージ種別のプロトコルメッセージを作成して返却する
+     *
+     * @param type 作成したいメッセージの種別をMessageManagerの規定に従い指定
+     * @param payload メッセージにデータを格納したい場合に指定する
+     * @return MessageManagerのbuild_messageによって生成されたJSON形式のメッセージ
+     */
+    fun getMsgText(type: MsgType, payload: String? = null): String {
+        val message = messageManager.build(type, this.host, this.port, payload)
+        println("generated_msg: [${message}]")
+        return message
     }
 
     /**
@@ -344,7 +361,7 @@ class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: St
         }
     }
 
-    private fun sendMsg(peer: Peer, message: String) {
+    fun sendMsg(peer: Peer, message: String) {
         println("send to ${peer} ${message}")
         val client = Client(peer.host, peer.port)
         client.send(message).subscribe( {
@@ -364,6 +381,19 @@ class ConnectionManager4Edge(val host: String, val port: Int, var myCoreHost: St
                 pingTimer?.cancel()
             }
         })
+    }
+
+    /**
+     * 指定したメッセージ種別のプロトコルメッセージを作成して返却する
+     *
+     * @param type 作成したいメッセージの種別をMessageManagerの規定に従い指定
+     * @param payload メッセージにデータを格納したい場合に指定する
+     * @return MessageManagerのbuild_messageによって生成されたJSON形式のメッセージ
+     */
+    fun getMsgText(type: MsgType, payload: String? = null): String {
+        val message = messageManager.build(type, this.host, this.port, payload)
+        println("generated_msg: [${message}]")
+        return message
     }
 
     /**

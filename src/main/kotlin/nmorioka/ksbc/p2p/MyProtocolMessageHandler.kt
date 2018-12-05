@@ -15,14 +15,31 @@ class MyProtocolMessageHandler {
         println("my_api: ${myApi}")
 
         if (myApi == "server_core_api") {
-            // println("Bloadcasting ... json.dumps(msg)")
+            println("Bloadcasting ... ${message}")
             // TODO: よく考えるとEdgeから受信した場合にしか他のCoreにブロードキャストしないようにすれば重複チェックもいらない…
-            // api(SEND_TO_ALL_PEER, json.dumps(msg))
-            // api(SEND_TO_ALL_EDGE, json.dumps(msg))
+            api(ApiProtocol.SEND_TO_ALL_PEER.rawValue, message)
+            api(ApiProtocol.SEND_TO_ALL_EDGE.rawValue, message)
         } else {
             println("MyProtocolMessageHandler received ${message}")
-            // api(PASS_TO_CLIENT_APP, msg)
+            api(ApiProtocol.PASS_TO_CLIENT_APP.rawValue, message)
         }
     }
 
+}
+
+enum class ApiProtocol(val rawValue: String) {
+    NONE("none"),
+
+    API_TYPE("api_type"),
+
+    SEND_TO_ALL_PEER("send_message_to_all_peer"),
+    SEND_TO_ALL_EDGE("send_message_to_all_edge"),
+
+    PASS_TO_CLIENT_APP("pass_message_to_client_application");
+
+    companion object {
+        fun fromRawValue(rawValue: String): ApiProtocol {
+            return ApiProtocol.values().firstOrNull { it.rawValue == rawValue } ?: ApiProtocol.NONE
+        }
+    }
 }

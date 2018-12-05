@@ -73,7 +73,6 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
                     // SimpleBitcoin としてはこの種別は使わない
 
                     // あらかじめ重複チェック（ポリシーによる。別にこの処理しなくてもいいかも
-
                     println("received enhanced message [${request.payload}]")
                     request.payload?.let {
                         if (myProtocolMessageStore.contains(it) == false) {
@@ -94,19 +93,23 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
      * @param message コマンド実行時に利用するために引き渡されるメッセージ
      */
     private fun coreApi(request: String, message: String?): String? {
+        val type = MsgType.ENHANCED
+        val apiProtocol = ApiProtocol.fromRawValue(request)
 
-        // msg_type = MSG_ENHANCED
-
-        if (request == "send_message_to_all_peer") {
-            // new_message = self.cm.get_message_text(msg_type, message)
-            // self.cm.send_msg_to_all_peer(new_message)
-            return "ok"
-        } else if (request == "send_message_to_all_edge") {
-            // ew_message = self.cm.get_message_text(msg_type, message)
-            // self.cm.send_msg_to_all_edge(new_message)
-            return "ok"
-        } else if (request == "api_type") {
-            return "server_core_api"
+        when(apiProtocol) {
+            ApiProtocol.SEND_TO_ALL_PEER -> {
+                val newMessage = cm.getMsgText(type, message)
+                cm.sendMsgToAllPeer(newMessage)
+                return "ok"
+            }
+            ApiProtocol.SEND_TO_ALL_EDGE -> {
+                val newMessage= cm.getMsgText(type, message)
+                cm.sendMsgToAllEdge(newMessage)
+                return "ok"
+            }
+            ApiProtocol.API_TYPE -> {
+                return "server_core_api"
+            }
         }
 
         return null
