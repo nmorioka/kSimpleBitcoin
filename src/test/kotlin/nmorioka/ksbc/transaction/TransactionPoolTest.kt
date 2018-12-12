@@ -14,26 +14,26 @@ class TransactionPoolTest {
     @Test
     fun add() {
         val tp = TransactionPool()
-        tp.setNewTransaction("hoge")
-        tp.setNewTransaction("fuga")
+        tp.setNewTransaction(mapOf("hoge" to 1))
+        tp.setNewTransaction(mapOf("fuga" to 2))
         val pooledTransactions = tp.getStoredTransactions()
 
         assertEquals(2, pooledTransactions.size)
-        assertEquals("hoge", pooledTransactions[0])
-        assertEquals("fuga", pooledTransactions[1])
+        assertEquals(mapOf("hoge" to 1), pooledTransactions[0])
+        assertEquals(mapOf("fuga" to 2), pooledTransactions[1])
     }
 
     @Test
     fun clear() {
         val tp = TransactionPool()
-        tp.setNewTransaction("hoge")
-        tp.setNewTransaction("fuga")
+        tp.setNewTransaction(mapOf("hgoe" to 1))
+        tp.setNewTransaction(mapOf("fuga" to 2))
         val pooledTransactions = tp.getStoredTransactions()
-        tp.setNewTransaction("piyo")
+        tp.setNewTransaction(mapOf("piyo" to 3))
         tp.clearMyTransactions(pooledTransactions.size)
 
         val clearedTransactions = tp.getStoredTransactions()
         assertEquals(1, clearedTransactions.size)
-        assertEquals("piyo", clearedTransactions[0])
+        assertEquals(mapOf("piyo" to 3), clearedTransactions[0])
     }
 }

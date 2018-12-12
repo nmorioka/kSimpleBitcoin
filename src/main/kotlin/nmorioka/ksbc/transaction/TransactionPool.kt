@@ -1,14 +1,14 @@
 package nmorioka.ksbc.transaction
 
 class TransactionPool {
-    private val transactions = mutableListOf<String>()
+    private val transactions = mutableListOf<Map<String, Any>>()
     private val lock = Object()
 
     init {
         println("Initializing TransactionPool...")
     }
 
-    fun setNewTransaction(transaction: String) {
+    fun setNewTransaction(transaction: Map<String, Any>) {
         synchronized(lock) {
             println("set_new_transaction is called [${transaction}]")
             transactions.add(transaction)
@@ -25,7 +25,8 @@ class TransactionPool {
 
     }
 
-    fun getStoredTransactions(): List<String> {
+    fun getStoredTransactions(): List<Map<String, Any>> {
         return transactions.toList()
     }
+
 }

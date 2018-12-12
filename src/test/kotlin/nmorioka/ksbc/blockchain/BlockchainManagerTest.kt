@@ -15,14 +15,14 @@ class BlockchainManagerTest {
 
         val genesisBlockHash = getHash(genesisBlock)
 
-        assertEquals("494926c7a06228da9043a665de687b72a76687a11d2a107079a13c9b9c10a22b", genesisBlockHash)
+        assertEquals("b74bdc8c3b826aae773e15b7c21fca53e0e7f665abb5aa45eb3b45cb07975925", genesisBlockHash)
 
         val transaction = mapOf<String, Any>(
                 "sender" to "test1",
                 "recipient" to "test2",
                 "value" to 3
         )
-        val newBlock = builder.generateNewBlock(transaction, genesisBlockHash)
+        val newBlock = builder.generateNewBlock(listOf(transaction), genesisBlockHash)
         manager.setNewBlock(newBlock)
         val newBlockHash = getHash(newBlock)
 
@@ -31,7 +31,7 @@ class BlockchainManagerTest {
                 "recipient" to "test3",
                 "value" to 2
         )
-        val newBlock2 = builder.generateNewBlock(transaction2, newBlockHash)
+        val newBlock2 = builder.generateNewBlock(listOf(transaction2), newBlockHash)
         manager.setNewBlock(newBlock2)
         val newBlock2Hash = getHash(newBlock2)
 
