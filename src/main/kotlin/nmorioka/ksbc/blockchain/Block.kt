@@ -3,7 +3,6 @@ package nmorioka.ksbc.blockchain
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-import nmorioka.ksbc.getHash
 
 
 private val moshi = Moshi.Builder().build()

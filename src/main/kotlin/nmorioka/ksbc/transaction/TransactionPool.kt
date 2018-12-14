@@ -1,5 +1,18 @@
 package nmorioka.ksbc.transaction
 
+import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+
+private val moshi = Moshi.Builder().build()
+private val type = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+private val adapter: JsonAdapter<Map<String, Any>> = moshi.adapter(type)
+
+
+fun loadTransaction(str: String): Map<String, Any>? {
+    return adapter.fromJson(str)
+}
+
 class TransactionPool {
     private val transactions = mutableListOf<Map<String, Any>>()
     private val lock = Object()
@@ -30,3 +43,4 @@ class TransactionPool {
     }
 
 }
+

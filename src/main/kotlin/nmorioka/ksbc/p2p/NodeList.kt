@@ -78,6 +78,14 @@ class NodeList {
         return nodeSet.first()
     }
 
+    /**
+     * 与えられたpeerがリストに含まれているか？をチェックする
+     * @param peer IPアドレスとポート番号のタプル
+     */
+    fun hasThisPeer(peer: Peer): Boolean {
+        return this.nodeSet.contains(peer)
+    }
+
     fun dump(): String {
         return adapter.toJson(nodeSet)
     }

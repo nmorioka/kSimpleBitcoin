@@ -16,7 +16,7 @@ import reactor.core.scheduler.Schedulers
 import java.util.*
 import kotlin.concurrent.timer
 
-class ConnectionManager(val host: String, val port: Int, val callback: (Request, Peer?) -> Unit) {
+class ConnectionManager(val host: String, val port: Int, val callback: (Request, Boolean, Peer?) -> Unit) {
 
     private val messageManager = MessageManager()
 
@@ -91,6 +91,14 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
         return messageManager.build(type, this.host, this.port, payload)
     }
 
+    /**
+     * 与えられたnodeがCoreノードのリストに含まれているか？をチェックする
+     * @param peer IPアドレスとポート番号のタプル
+     */
+    private fun isInCoreSet(peer:Peer): Boolean {
+        return this.coreNodeList.hasThisPeer(peer)
+    }
+
     private fun handleMessage(request: Request) {
         println("handle message : [${request}]")
 
@@ -143,7 +151,9 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
                         }
                         else -> {
                             println("callback..")
-                            callback(request, Peer(h, p))
+                            val peer = Peer(h, p)
+                            val isCore = isInCoreSet(peer)
+                            callback(request, isCore, peer)
                         }
                     }
                 }
@@ -161,7 +171,10 @@ class ConnectionManager(val host: String, val port: Int, val callback: (Request,
                     else -> {
                         let2(request.host, request.port) { h, p ->
                             println("callback..")
-                            callback(request, Peer(h, p))
+                            val isCore = isInCoreSet(Peer(h, p))
+
+                            // callback(request, Peer(h, p))
+                            callback(request, isCore, null)
                         }
                     }
                 }
