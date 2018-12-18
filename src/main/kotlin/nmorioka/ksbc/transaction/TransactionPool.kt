@@ -13,6 +13,10 @@ fun loadTransaction(str: String): Map<String, Any>? {
     return adapter.fromJson(str)
 }
 
+fun dumpTransaction(transaction: Map<String, Any>): String? {
+    return adapter.toJson(transaction)
+}
+
 class TransactionPool {
     private val transactions = mutableListOf<Map<String, Any>>()
     private val lock = Object()
