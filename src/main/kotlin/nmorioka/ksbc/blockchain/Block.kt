@@ -7,14 +7,18 @@ import nmorioka.ksbc.getDoubleSha256
 
 
 private val moshi = Moshi.Builder().build()
-private val type = Types.newParameterizedType(List::class.java, Map::class.java, String::class.java, Any::class.java)
-private val adapter: JsonAdapter<List<Map<String, Any>>> = moshi.adapter(type)
+private val listType = Types.newParameterizedType(List::class.java, Map::class.java, String::class.java, Any::class.java)
+private val listAdapter: JsonAdapter<List<Map<String, Any>>> = moshi.adapter(listType)
+private val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
+private val mapAdapter: JsonAdapter<Map<String, Any>> = moshi.adapter(mapType)
 
 
 
 interface Block {
     fun getPreviousHash(): String?
-    fun toDict(): Map<String, Any>
+    fun toDict(includeNonce: Boolean): Map<String, Any>
+
+
 }
 
 /**
@@ -27,7 +31,7 @@ class BasicBlock internal constructor(val transactions: List<Map<String, Any>>, 
 
     init {
         val initTime = System.currentTimeMillis()
-        nonce = computeNonceForPow(adapter.toJson(transactions))
+        nonce = computeNonceForPow(mapAdapter.toJson(toDict(false)))
 
         val diffTime = System.currentTimeMillis() - initTime
         println("init block time[${diffTime}]")
@@ -38,11 +42,23 @@ class BasicBlock internal constructor(val transactions: List<Map<String, Any>>, 
         return previousBlock
     }
 
-    override fun toDict(): Map<String, Any> {
-        return mapOf<String, Any>(
-                "timestamp" to timestamp,
-                "transactions" to adapter.toJson(transactions),
-                "previous_block" to previousBlock)
+    override fun toDict(includeNonce: Boolean): Map<String, Any> {
+        if (includeNonce) {
+            return  mapOf<String, Any>(
+                    "timestamp" to timestamp,
+                    "transactions" to listAdapter.toJson(transactions),
+                    "previous_block" to previousBlock,
+                    "nonce" to nonce)
+        } else {
+            return  mapOf<String, Any>(
+                    "timestamp" to timestamp,
+                    "transactions" to listAdapter.toJson(transactions),
+                    "previous_block" to previousBlock)
+        }
+    }
+
+    override fun toString(): String {
+        return mapAdapter.toJson(toDict(true))
     }
 
     /**
@@ -72,11 +88,15 @@ class GenesisBlock(val transactions: List<Map<String, Any>> = listOf(mapOf<Strin
         return null
     }
 
-    override fun toDict(): Map<String, Any> {
+    override fun toDict(includeNonce: Boolean): Map<String, Any> {
         return mapOf<String, Any>(
-                "transactions" to adapter.toJson(transactions),
+                "transactions" to listAdapter.toJson(transactions),
                 "genesis_block" to true
         )
+    }
+
+    override fun toString(): String {
+        return mapAdapter.toJson(toDict(true))
     }
 }
 

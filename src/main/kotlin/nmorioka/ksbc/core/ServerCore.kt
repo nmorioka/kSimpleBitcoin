@@ -83,7 +83,7 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
             println("Transaction Pool is empty ...'")
         }
 
-        println("Current Blockchain is ... ${blockchainManager.chain}")
+        println("Current Blockchain size ... ${blockchainManager.chain.size}")
         println("Current prev_block_hash is ... ${this.prevBlockHash}")
     }
 

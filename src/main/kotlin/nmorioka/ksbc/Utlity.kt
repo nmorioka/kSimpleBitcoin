@@ -26,12 +26,17 @@ fun getDoubleSha256(message: String): String {
     return hash256(hash256(message))
 }
 
+fun getStr(block: Block): String {
+    return getHash(block.toDict(true))
+}
+
+
 /**
  * 正当性確認に使うためブロックのハッシュ値を取る
  * @param block Block
  */
 fun getHash(block: Block): String {
-    return getHash(block.toDict())
+    return getDoubleSha256(block.toString())
 }
 
 fun getHash(map: Map<String, Any>): String {
