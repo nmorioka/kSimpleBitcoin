@@ -52,6 +52,7 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
         println("Shutdown server...")
 
         serverState = ServerState.SHUTING_DOWN
+        transactionTimer?.cancel()
         cm.stop()
     }
 

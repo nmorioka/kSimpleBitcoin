@@ -23,8 +23,8 @@ class BlockchainManager(val genesisBlock: GenesisBlock) {
         val head = getHash(chain[0])
         chain.fold(head) { previous, block ->
             val hash = getHash(block)
-            println("previous[${block.previousBlock}] to [${hash}]")
-            if (block.previousBlock != null && previous != block.previousBlock) {
+            println("previous[${block.getPreviousHash()}] to [${hash}]")
+            if (block.getPreviousHash() != null && previous != block.getPreviousHash()) {
                 return false
             }
             hash
