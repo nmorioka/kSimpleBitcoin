@@ -3,7 +3,6 @@ package nmorioka.ksbc
 import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
-import nmorioka.ksbc.blockchain.Block
 import java.security.MessageDigest
 
 fun <T1 : Any, T2 : Any, R> let2(a: T1?, b: T2?, callback: (T1, T2) -> R): R? =
@@ -13,8 +12,8 @@ fun <T1 : Any, T2 : Any, R> let2(a: T1?, b: T2?, callback: (T1, T2) -> R): R? =
             null
 
 private val moshi = Moshi.Builder().build()
-private val type = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
-private val adapter: JsonAdapter<Map<String, Any>> = moshi.adapter(type)
+private val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+private val adapter: JsonAdapter<Map<String, String>> = moshi.adapter(type)
 
 fun hash256(message: String): String {
     val md = MessageDigest.getInstance("SHA-256")
@@ -26,20 +25,8 @@ fun getDoubleSha256(message: String): String {
     return hash256(hash256(message))
 }
 
-fun getStr(block: Block): String {
-    return getHash(block.toDict(true))
-}
 
-
-/**
- * 正当性確認に使うためブロックのハッシュ値を取る
- * @param block Block
- */
-fun getHash(block: Block): String {
-    return getDoubleSha256(block.toString())
-}
-
-fun getHash(map: Map<String, Any>): String {
+fun getHash(map: Map<String, String>): String {
     val str = adapter.toJson(map)
     return getDoubleSha256(str)
 }

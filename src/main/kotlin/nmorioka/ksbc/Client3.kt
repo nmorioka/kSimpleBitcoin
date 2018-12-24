@@ -30,7 +30,7 @@ fun main(args: Array<String>) {
     val transaction = mapOf(
         "sender" to "test4",
         "recipient" to "test5",
-        "value" to 3
+        "value" to 3.toString()
     )
 
     dumpTransaction(transaction)?.let {
@@ -40,7 +40,7 @@ fun main(args: Array<String>) {
     val transaction2 = mapOf(
             "sender" to "test6",
             "recipient" to "test7",
-            "value"  to 2
+            "value"  to 2.toString()
     )
 
     dumpTransaction(transaction2)?.let {
@@ -52,7 +52,7 @@ fun main(args: Array<String>) {
     val transaction3 = mapOf(
         "sender" to "test8",
         "recipient" to "test9",
-        "value" to 10
+        "value" to 10.toString()
     )
 
     dumpTransaction(transaction3)?.let {

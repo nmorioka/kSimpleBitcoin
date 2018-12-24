@@ -4,61 +4,123 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import nmorioka.ksbc.getDoubleSha256
+import nmorioka.ksbc.let2
 
 
 private val moshi = Moshi.Builder().build()
-private val listType = Types.newParameterizedType(List::class.java, Map::class.java, String::class.java, Any::class.java)
-private val listAdapter: JsonAdapter<List<Map<String, Any>>> = moshi.adapter(listType)
-private val mapType = Types.newParameterizedType(Map::class.java, String::class.java, Any::class.java)
-private val mapAdapter: JsonAdapter<Map<String, Any>> = moshi.adapter(mapType)
+private val listType = Types.newParameterizedType(List::class.java, Map::class.java, String::class.java, String::class.java)
+private val listAdapter: JsonAdapter<List<Map<String, String>>> = moshi.adapter(listType)
+private val mapType = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+private val mapAdapter: JsonAdapter<Map<String, String>> = moshi.adapter(mapType)
 
 
-
-interface Block {
-    fun getPreviousHash(): String?
-    fun toDict(includeNonce: Boolean): Map<String, Any>
-
-
+fun nonceIsProof(message: String, nonce: String, difficulty: Int = 4): Boolean {
+    val numbers = (1..difficulty).map{ "0" }.reduce {acc, s -> acc + s}
+    val digit = getDoubleSha256(message + nonce)
+    return digit.endsWith(numbers)
 }
+
+/**
+ * 正当性確認に使うためブロックのハッシュ値を取る
+ * @param block Block
+ */
+fun getHash(block: Block): String {
+    return getDoubleSha256(block.toString())
+}
+
+fun getStr(block: Block): String {
+    return nmorioka.ksbc.getHash(block.toDict(true))
+}
+
+
+fun toJson(block: Block): String {
+    return mapAdapter.toJson(block.toDict(true))
+}
+
+fun fromJson(str: String): Block? {
+    return mapAdapter.fromJson(str)?.let { fromDict(it) }
+}
+
+fun fromDict(dict: Map<String, String>): Block? {
+    val transactionData = dict["transactions"] ?: return null
+
+    return let2(listAdapter.fromJson(transactionData), dict["timestamp"]) { transactions, timestamp ->
+        Block(transactions = transactions, previousHash = dict["previous_block"], timestamp = timestamp.toLong(), _nonce = dict["nonce"])
+    }
+
+    return null
+}
+
 
 /**
  * transaction: ブロック内にセットされるトランザクション
  * previous_block_hash: 直前のブロックのハッシュ値
  */
-class BasicBlock internal constructor(val transactions: List<Map<String, Any>>, private val previousBlock: String) : Block {
-    val timestamp = System.currentTimeMillis()
+open class Block internal constructor(val transactions: List<Map<String, String>>,
+                                      val previousHash: String?,
+                                      val timestamp: Long = System.currentTimeMillis(),
+                                      _nonce: String? = null) {
     val nonce: String
 
     init {
-        val initTime = System.currentTimeMillis()
-        nonce = computeNonceForPow(mapAdapter.toJson(toDict(false)))
-
-        val diffTime = System.currentTimeMillis() - initTime
-        println("init block time[${diffTime}]")
-
-    }
-
-    override fun getPreviousHash(): String? {
-        return previousBlock
-    }
-
-    override fun toDict(includeNonce: Boolean): Map<String, Any> {
-        if (includeNonce) {
-            return  mapOf<String, Any>(
-                    "timestamp" to timestamp,
+        val initmap = previousHash?.let {
+            mapOf<String, String>(
+                    "timestamp" to timestamp.toString(),
                     "transactions" to listAdapter.toJson(transactions),
-                    "previous_block" to previousBlock,
-                    "nonce" to nonce)
+                    "previous_block" to previousHash)
+
+        } ?: mapOf<String, String>(
+                    "timestamp" to timestamp.toString(),
+                    "transactions" to listAdapter.toJson(transactions))
+
+
+        if (_nonce != null && nonceIsProof(mapAdapter.toJson(initmap), _nonce)) {
+            nonce = _nonce
         } else {
-            return  mapOf<String, Any>(
-                    "timestamp" to timestamp,
-                    "transactions" to listAdapter.toJson(transactions),
-                    "previous_block" to previousBlock)
+            val initTime = System.currentTimeMillis()
+            nonce = computeNonceForPow(toMessage(false))
+
+            val diffTime = System.currentTimeMillis() - initTime
+            println("init block time[${diffTime}]")
         }
     }
 
-    override fun toString(): String {
-        return mapAdapter.toJson(toDict(true))
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as Block
+        return toDict(true).equals(other.toDict(true))
+    }
+
+    open fun toMessage(includeNonce: Boolean): String {
+        return mapAdapter.toJson(toDict(includeNonce))
+    }
+
+    open fun toDict(includeNonce: Boolean): Map<String, String> {
+        if (includeNonce) {
+            previousHash?.let {
+                return  mapOf<String, String>(
+                        "timestamp" to timestamp.toString(),
+                        "transactions" to listAdapter.toJson(transactions),
+                        "previous_block" to previousHash,
+                        "nonce" to nonce)
+            }
+            return  mapOf<String, String>(
+                        "timestamp" to timestamp.toString(),
+                        "transactions" to listAdapter.toJson(transactions),
+                        "nonce" to nonce)
+        } else {
+            previousHash?.let {
+                return  mapOf<String, String>(
+                        "timestamp" to timestamp.toString(),
+                        "transactions" to listAdapter.toJson(transactions),
+                        "previous_block" to previousHash)
+
+            }
+            return  mapOf<String, String>(
+                    "timestamp" to timestamp.toString(),
+                    "transactions" to listAdapter.toJson(transactions))
+        }
     }
 
     /**
@@ -69,9 +131,9 @@ class BasicBlock internal constructor(val transactions: List<Map<String, Any>>, 
         val numbers = (1..difficulty).map{ "0" }.reduce {acc, s -> acc + s}
         var i = 1
         while(true) {
-            val digit = getDoubleSha256(message + i)
-            if (digit.endsWith(numbers)) {
-                return i.toString()
+            val nonce = i.toString()
+            if (nonceIsProof(message, nonce)) {
+                return nonce
             }
             i++
         }
@@ -83,21 +145,8 @@ class BasicBlock internal constructor(val transactions: List<Map<String, Any>>, 
  * 前方にブロックを持たないブロックチェーンの始原となるブロック。
  * transaction にセットしているのは「{"message":"this_is_simple_bitcoin_genesis_block"}」をSHA256でハッシュしたもの。深い意味はない
  */
-class GenesisBlock(val transactions: List<Map<String, Any>> = listOf(mapOf<String, Any>("message" to "this_is_simple_bitcoin_genesis_block"))) : Block {
-    override fun getPreviousHash(): String? {
-        return null
-    }
+class GenesisBlock() : Block(transactions = listOf(mapOf<String, String>("message" to "this_is_simple_bitcoin_genesis_block")), previousHash = null, timestamp = 0){
 
-    override fun toDict(includeNonce: Boolean): Map<String, Any> {
-        return mapOf<String, Any>(
-                "transactions" to listAdapter.toJson(transactions),
-                "genesis_block" to true
-        )
-    }
-
-    override fun toString(): String {
-        return mapAdapter.toJson(toDict(true))
-    }
 }
 
 
@@ -106,8 +155,7 @@ class BlockBuilder() {
         return GenesisBlock()
     }
 
-    fun generateNewBlock(transactions: List<Map<String, Any>>, previousBlockHash: String): BasicBlock {
-        return BasicBlock(transactions, previousBlockHash)
+    fun generateNewBlock(transactions: List<Map<String, String>>, previousBlockHash: String): Block {
+        return Block(transactions, previousBlockHash)
     }
-
 }
