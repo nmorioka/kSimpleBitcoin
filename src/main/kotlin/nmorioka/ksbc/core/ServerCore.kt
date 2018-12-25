@@ -1,8 +1,9 @@
 package nmorioka.ksbc.core
 
-import nmorioka.ksbc.blockchain.BlockBuilder
+import nmorioka.ksbc.blockchain.Block
 import nmorioka.ksbc.blockchain.BlockchainManager
-import nmorioka.ksbc.getHash
+import nmorioka.ksbc.blockchain.fromJson
+import nmorioka.ksbc.blockchain.toJson
 import nmorioka.ksbc.p2p.*
 import nmorioka.ksbc.transaction.TransactionPool
 import nmorioka.ksbc.transaction.loadTransaction
@@ -17,9 +18,10 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
     private val myProtocolMessageStore = mutableListOf<String>()
 
     private val transactionPool = TransactionPool()
-    private val blockBuilder = BlockBuilder()
     private val blockchainManager: BlockchainManager
-    private var prevBlockHash: String
+
+    private var isBBRunning = false
+    private var flagStopBlockBuild = false
 
     private var transactionTimer: Timer? = null
 
@@ -30,9 +32,7 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
             handleMessage(request, isCore, peer)
         }
 
-        val genesisBlock = blockBuilder.generateGeneisBlock()
-        blockchainManager = BlockchainManager(genesisBlock)
-        prevBlockHash = getHash(genesisBlock)
+        blockchainManager = BlockchainManager()
     }
 
     /**
@@ -72,23 +72,27 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
         }
     }
 
+    fun getAllChainsForResolveConflict() {
+        println("get_all_chains_for_resolve_conflict called")
+        val message = cm.getMsgText(MsgType.REQUEST_FULL_CHAIN)
+        cm.sendMsgToAllPeer(message)
+    }
+
     private fun generateBlockWithTp() {
         val result = transactionPool.getStoredTransactions()
         if (result.isNotEmpty()) {
-            val newBlock = blockBuilder.generateNewBlock(result, this.prevBlockHash)
+            val newBlock = blockchainManager.generateNewBlock(result)
             blockchainManager.setNewBlock(newBlock)
+            val message = cm.getMsgText(MsgType.NEW_BLOCK, toJson(newBlock))
+            cm.sendMsgToAllPeer(message)
             transactionPool.clearMyTransactions(result.size)
-            this.prevBlockHash = getHash(newBlock)
         } else {
             println("Transaction Pool is empty ...'")
         }
 
-        println("Current Blockchain size ... ${blockchainManager.chain.size}")
-        println("Current prev_block_hash is ... ${this.prevBlockHash}")
+        this.isBBRunning = false;
+        println("Current Blockchain size ... ${blockchainManager.getMyChainLength()}")
     }
-
-
-
 
     /**
      * ConnectionManagerに引き渡すコールバックの中身
@@ -96,17 +100,18 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
     private fun handleMessage(request: Request, isCore: Boolean, peer: Peer?) {
         if (peer != null) {
             when (request.type) {
-                MsgType.RSP_FULL_CHAIN -> {
-                    // TODO: 現状はREQUEST_FULL_CHAINの時にしかこの処理に入らないけど、
-                    //  まだブロックチェーンを作るところまで行ってないのでとりあえず口だけ作っておく
+                MsgType.REQUEST_FULL_CHAIN -> {
                     println("Send our latest blockchain for reply to : ${peer}")
+                    val myChain = blockchainManager.getMyChainDump()
+                    println("request mychain [${myChain}]")
+                    val message = cm.getMsgText(MsgType.RSP_FULL_CHAIN, myChain)
+                    cm.sendMsg(peer, message)
                     return
                 }
             }
         } else {
             when (request.type) {
                 MsgType.NEW_TRANSACTION -> {
-                    // TODO: 新規transactionを登録する処理を呼び出す
                     request.payload?.let {
                         val transaction = loadTransaction(request.payload)
                         println("received new_transaction ${transaction}")
@@ -128,10 +133,53 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
                     }
                 }
                 MsgType.NEW_BLOCK -> {
-                    // TODO: 新規ブロックを検証する処理を呼び出す
+                    if (isCore == false) {
+                        println("block received from unknown")
+                        return
+                    }
+                    // 新規ブロックを検証し、正当なものであればブロックチェーンに追加する
+                    request.payload?.let {
+                        val newBlock  = fromJson(it)
+                        if (newBlock != null && blockchainManager.isValidBlock(newBlock)) {
+                            // ブロック生成が行われていたら、いったん停止してあげる
+                            // (threadingなのでキレイに止まらない可能性あり)
+                            // TODO resolve
+                            // if self.is_bb_running:
+                            //     self.flag_stop_block_build = True
+                            blockchainManager.setNewBlock(newBlock)
+                        } else {
+                            // ブロックとして不正ではないがVerifyにコケる場合は自分がorphanブロックを生成している
+                            // 可能性がある
+                            getAllChainsForResolveConflict()
+                        }
+                    }
                 }
                 MsgType.RSP_FULL_CHAIN -> {
-                    // TODO: ブロックチェーン送信要求に応じて返却されたブロックチェーンを検証する処理を呼び出す
+                    if (isCore == false) {
+                        println("block received from unknown")
+                        return
+                    }
+                    // ブロックチェーン送信要求に応じて返却されたブロックチェーンを検証し、有効なものか検証した上で
+                    // 自分の持つチェインと比較し優位な方を今後のブロックチェーンとして有効化する
+
+                    request.payload?.let {
+                        val newChain = blockchainManager.convertChain(request.payload)
+                        println("rsp_full_chain [${newChain}]")
+                        if (newChain == null) {
+                            return
+                        }
+
+                        val result = blockchainManager.resolveConflicts(newChain)
+                        println("blockchain received")
+                        if (result.second.size > 0) {
+                            // orphanブロック群の中にあった未処理扱いになるTransactionをTransactionPoolに戻す
+                            val newTransactions = blockchainManager.getTransactionsFromOrphanBlocks(result.second)
+                            for (newTransaction in newTransactions) {
+                                transactionPool.setNewTransaction(newTransaction)
+                            }
+                        }
+
+                    }
                 }
                 MsgType.ENHANCED -> {
                     // P2P Network を単なるトランスポートして使っているアプリケーションが独自拡張したメッセージはここで処理する。
@@ -187,9 +235,4 @@ enum class ServerState(val rawValue: Int) {
     CONNECTED_TO_NETWORK(2),
     SHUTING_DOWN(3)
 }
-
-
-
-
-
 

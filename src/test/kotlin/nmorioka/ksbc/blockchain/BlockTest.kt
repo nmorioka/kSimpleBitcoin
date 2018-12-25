@@ -1,11 +1,8 @@
 package nmorioka.ksbc.blockchain
 
-import nmorioka.ksbc.getDoubleSha256
-import nmorioka.ksbc.hash256
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.asserter
 
 
 class BlockTest {

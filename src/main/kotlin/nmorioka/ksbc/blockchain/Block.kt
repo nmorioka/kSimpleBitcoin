@@ -4,6 +4,7 @@ import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import nmorioka.ksbc.getDoubleSha256
+import nmorioka.ksbc.hash256
 import nmorioka.ksbc.let2
 
 
@@ -25,13 +26,12 @@ fun nonceIsProof(message: String, nonce: String, difficulty: Int = 4): Boolean {
  * @param block Block
  */
 fun getHash(block: Block): String {
-    return getDoubleSha256(block.toString())
+    return getDoubleSha256(toJson(block))
 }
 
 fun getStr(block: Block): String {
     return nmorioka.ksbc.getHash(block.toDict(true))
 }
-
 
 fun toJson(block: Block): String {
     return mapAdapter.toJson(block.toDict(true))
@@ -123,6 +123,10 @@ open class Block internal constructor(val transactions: List<Map<String, String>
         }
     }
 
+    override fun toString(): String {
+        return getHash(this)
+    }
+
     /**
      * block生成の計算処理
      * difficultyの数字を増やせば増やすほど、末尾で揃えなければならない桁数が増える
@@ -141,18 +145,13 @@ open class Block internal constructor(val transactions: List<Map<String, String>
 
 }
 
-/**
- * 前方にブロックを持たないブロックチェーンの始原となるブロック。
- * transaction にセットしているのは「{"message":"this_is_simple_bitcoin_genesis_block"}」をSHA256でハッシュしたもの。深い意味はない
- */
-class GenesisBlock() : Block(transactions = listOf(mapOf<String, String>("message" to "this_is_simple_bitcoin_genesis_block")), previousHash = null, timestamp = 0){
-
-}
-
-
 class BlockBuilder() {
-    fun generateGeneisBlock(): GenesisBlock {
-        return GenesisBlock()
+    /**
+     * 前方にブロックを持たないブロックチェーンの始原となるブロック。
+     * transaction にセットしているのは「{"message":"this_is_simple_bitcoin_genesis_block"}」をSHA256でハッシュしたもの。深い意味はない
+     */
+    fun generateGeneisBlock(): Block {
+        return Block(transactions = listOf(mapOf<String, String>("message" to "this_is_simple_bitcoin_genesis_block")), previousHash = null, timestamp = 0)
     }
 
     fun generateNewBlock(transactions: List<Map<String, String>>, previousBlockHash: String): Block {

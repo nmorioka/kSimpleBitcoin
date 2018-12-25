@@ -10,7 +10,7 @@ class BlockchainManager() {
     private val chainType = Types.newParameterizedType(List::class.java, Block::class.java)
     private val chainAdapter: JsonAdapter<List<Block>> = moshi.adapter(chainType)
 
-    private val chain = mutableListOf<Block>()
+    private val myChain = mutableListOf<Block>()
     private val lock = Object()
 
     private var prevBlockHash: String
@@ -20,7 +20,7 @@ class BlockchainManager() {
     init {
         println("Initializing BlockchainManager...")
         val genesisBlock = blockBuilder.generateGeneisBlock()
-        chain.add(genesisBlock)
+        myChain.add(genesisBlock)
         prevBlockHash = getHash(genesisBlock)
     }
 
@@ -30,44 +30,76 @@ class BlockchainManager() {
 
     fun setNewBlock(block: Block) {
         synchronized(lock) {
-            chain.add(block)
+            myChain.add(block)
             prevBlockHash = getHash(block)
             println("Current prev_block_hash is ... ${this.prevBlockHash}")
         }
     }
 
+    /**
+     * ブロックチェーン自体を更新し、それによって変更されるはずの最新のprev_block_hashを計算して返却する
+     */
+    fun renewMyBlockChain(chain: List<Block>): String? {
+        synchronized(lock) {
+            if (isValidChain(chain)) {
+                myChain.clear()
+                myChain.addAll(chain)
+                this.prevBlockHash =  getHash(myChain.last())
+                return this.prevBlockHash
+            } else {
+                println("invalid myChain cannot be set...")
+                return null
+            }
+        }
+    }
+
     fun getMyBlockchain(): List<Block> {
-        if (chain.isEmpty()) {
+        if (myChain.isEmpty()) {
             return listOf()
         } else {
-            return chain.toList()
+            return myChain.toList()
         }
     }
 
     fun getMyChainLength(): Int {
-        return chain.size
+        return myChain.size
     }
 
     fun getMyChainDump(): String {
-        return chainAdapter.toJson(chain)
+        return chainAdapter.toJson(myChain)
     }
 
     fun convertChain(json: String): List<Block>? {
         return chainAdapter.fromJson(json)
     }
 
-    fun isValidChain(): Boolean {
-        val head = getHash(chain[0])
-        chain.fold(head) { previous, block ->
-            val hash = getHash(block)
-            println("previous[${block.previousHash}] to [${hash}]")
-            if (block.previousHash != null && previous != block.previousHash) {
-                return false
-            }
-            hash
+    /**
+     * 自分のブロックチェーンと比較して、長い方を有効とする。有効性検証自体はrenew_my_blockchainで実施
+     */
+    fun resolveConflicts(chain: List<Block>):Pair<String?, List<Block>> {
+        val myChainLen = getMyChainLength()
+        val newChainLen = chain.size
+
+        val pool4OrphanBlocks = getMyBlockchain().toMutableList()
+
+        // 自分のチェーンの中でだけ処理済みとなっているTransactionを救出する。現在のチェーンに含まれていない
+        // ブロックを全て取り出す。時系列を考えての有効無効判定などはしないかなり簡易な処理。
+        if (newChainLen <= myChainLen) {
+            println("ivalid myChain cannot be set...")
+            return Pair(null, listOf())
         }
 
-        return true
+        for (b in pool4OrphanBlocks) {
+            for (b2 in chain) {
+                if (b == b2) {
+                    pool4OrphanBlocks.remove(b)
+                }
+            }
+        }
+
+        return renewMyBlockChain(chain).let {
+            Pair(it, pool4OrphanBlocks)
+        } ?: Pair(null, listOf())
     }
 
     fun isValidBlock(block: Block): Boolean {
@@ -89,15 +121,42 @@ class BlockchainManager() {
         }
     }
 
+    fun isValidChain(chain: List<Block>): Boolean {
+        val head = getHash(chain[0])
+        chain.fold(head) { previous, block ->
+            val hash = getHash(block)
+            println("previous[${block.previousHash}] to [${hash}]")
+            if (block.previousHash != null && previous != block.previousHash) {
+                return false
+            }
+            hash
+        }
+
+        return true
+    }
+
+    fun getTransactionsFromOrphanBlocks(orphanBlocks: List<Block>): List<Map<String, String>> {
+        val currentIndex = 0
+        val newTransactions = mutableListOf<Map<String, String>>()
+
+        while (currentIndex < orphanBlocks.size) {
+            val transactions = orphanBlocks[currentIndex].transactions
+            val target = removeUselessTransaction(transactions)
+            newTransactions.addAll(target)
+        }
+
+        return newTransactions.toList()
+    }
+
     /**
      * 与えられた Transaction のリストの中ですでに自分が管理するブロックチェーン内に含まれたTransactionがある場合、それを削除したものを返却する
      */
-    fun removeUselessTransaction(transactions:  List<Map<String, Any>>): List<Map<String, Any>> {
+    fun removeUselessTransaction(transactions: List<Map<String, String>>): List<Map<String, String>> {
         val mutableTransactions = transactions.toMutableList()
         if (transactions.isNotEmpty()) {
             var cunnrentIndex = 1
-            while (cunnrentIndex < chain.size) {
-                val block = chain[cunnrentIndex]
+            while (cunnrentIndex < myChain.size) {
+                val block = myChain[cunnrentIndex]
                 val newTransactions = block.transactions
                 for (t in newTransactions) {
                     for (t2 in transactions){

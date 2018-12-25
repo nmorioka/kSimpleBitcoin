@@ -33,7 +33,7 @@ class BlockchainManagerTest {
         val newBlock2 = builder.generateNewBlock(listOf(transaction2), newBlockHash)
         manager.setNewBlock(newBlock2)
 
-        assertTrue { manager.isValidChain() }
+        assertTrue { manager.isValidChain(manager.getMyBlockchain()) }
     }
 
     @Test
