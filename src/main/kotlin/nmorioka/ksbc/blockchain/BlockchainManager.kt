@@ -5,6 +5,38 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 
 
+fun isValidBlock(block: Block, previousHash: String?): Boolean {
+    val message = block.toMessage(false)
+    val nonce = block.nonce
+
+    if (block.previousHash != previousHash) {
+        println("Invalid block (bad previous_block) [${block.previousHash}] [${previousHash}]")
+        return false
+    }
+
+    if (nonceIsProof(message, nonce)) {
+        println("OK, this seems valid block")
+        return true
+    } else {
+        println("Invalid block (bad nonce) [${nonce}]")
+        return false
+    }
+}
+
+fun isValidChain(chain: List<Block>): Boolean {
+    val head = chain[0].previousHash
+    chain.fold(head) { previous, block ->
+        val hash = getHash(block)
+        println("previous[${block.previousHash}] to [${hash}]")
+        if (isValidBlock(block, previous) == false) {
+            return false
+        }
+        hash
+    }
+
+    return true
+}
+
 class BlockchainManager() {
     private val moshi = Moshi.Builder().build()
     private val chainType = Types.newParameterizedType(List::class.java, Block::class.java)
@@ -73,6 +105,10 @@ class BlockchainManager() {
         return chainAdapter.fromJson(json)
     }
 
+    fun isValidNewBlock(block: Block): Boolean {
+        return isValidBlock(block, this.prevBlockHash)
+    }
+
     /**
      * 自分のブロックチェーンと比較して、長い方を有効とする。有効性検証自体はrenew_my_blockchainで実施
      */
@@ -100,39 +136,6 @@ class BlockchainManager() {
         return renewMyBlockChain(chain).let {
             Pair(it, pool4OrphanBlocks)
         } ?: Pair(null, listOf())
-    }
-
-    fun isValidBlock(block: Block): Boolean {
-        val message = block.toMessage(false)
-        val nonce = block.nonce
-
-        if (block.previousHash != prevBlockHash) {
-            println("Invalid block (bad previous_block) [${block.previousHash}] [${prevBlockHash}]")
-            println("Invalid block (bad previous_block)")
-            return false
-        }
-
-        if (nonceIsProof(message, nonce)) {
-            println("OK, this seems valid block")
-            return true
-        } else {
-            println("Invalid block (bad nonce) [${nonce}]")
-            return false
-        }
-    }
-
-    fun isValidChain(chain: List<Block>): Boolean {
-        val head = getHash(chain[0])
-        chain.fold(head) { previous, block ->
-            val hash = getHash(block)
-            println("previous[${block.previousHash}] to [${hash}]")
-            if (block.previousHash != null && previous != block.previousHash) {
-                return false
-            }
-            hash
-        }
-
-        return true
     }
 
     fun getTransactionsFromOrphanBlocks(orphanBlocks: List<Block>): List<Map<String, String>> {

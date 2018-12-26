@@ -140,7 +140,7 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
                     // 新規ブロックを検証し、正当なものであればブロックチェーンに追加する
                     request.payload?.let {
                         val newBlock  = fromJson(it)
-                        if (newBlock != null && blockchainManager.isValidBlock(newBlock)) {
+                        if (newBlock != null && blockchainManager.isValidNewBlock(newBlock)) {
                             // ブロック生成が行われていたら、いったん停止してあげる
                             // (threadingなのでキレイに止まらない可能性あり)
                             // TODO resolve
