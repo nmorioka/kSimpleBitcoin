@@ -36,4 +36,22 @@ class TransactionPoolTest {
         assertEquals(1, clearedTransactions.size)
         assertEquals(mapOf("piyo" to 3.toString()), clearedTransactions[0])
     }
+
+    @Test
+    fun renewMyTransactions() {
+        val tp = TransactionPool()
+        tp.setNewTransaction(mapOf("hgoe" to 1.toString()))
+        tp.setNewTransaction(mapOf("fuga" to 2.toString()))
+
+        val replace = mutableListOf<Map<String,String>>()
+        replace.add(mapOf("piyo" to 3.toString()))
+        replace.add(mapOf("hoge2" to 4.toString()))
+        replace.add(mapOf("fuga2" to 5.toString()))
+
+        tp.renewMyTransactions(replace)
+
+        assertEquals(3, tp.size())
+        assertEquals("3", tp.getStoredTransactions()[0]["piyo"])
+    }
+
 }

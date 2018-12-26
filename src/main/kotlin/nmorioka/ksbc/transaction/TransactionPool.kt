@@ -50,5 +50,13 @@ class TransactionPool {
         return transactions.size
     }
 
+    fun renewMyTransactions(transactions: List<Map<String, String>>) {
+        synchronized(lock) {
+            println("transaction pool will be renewed to ... ${transactions}")
+            this.transactions.clear()
+            this.transactions.addAll(transactions)
+        }
+    }
+
 }
 
