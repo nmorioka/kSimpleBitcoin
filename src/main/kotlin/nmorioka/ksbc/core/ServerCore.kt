@@ -1,6 +1,5 @@
 package nmorioka.ksbc.core
 
-import nmorioka.ksbc.blockchain.Block
 import nmorioka.ksbc.blockchain.BlockchainManager
 import nmorioka.ksbc.blockchain.fromJson
 import nmorioka.ksbc.blockchain.toJson
@@ -79,19 +78,30 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
     }
 
     private fun generateBlockWithTp() {
-        val result = transactionPool.getStoredTransactions()
-        if (result.isNotEmpty()) {
-            val newBlock = blockchainManager.generateNewBlock(result)
-            blockchainManager.setNewBlock(newBlock)
-            val message = cm.getMsgText(MsgType.NEW_BLOCK, toJson(newBlock))
-            cm.sendMsgToAllPeer(message)
-            transactionPool.clearMyTransactions(result.size)
-        } else {
-            println("Transaction Pool is empty ...'")
-        }
+        while (!flagStopBlockBuild) {
+            this.isBBRunning = true
+            val result = transactionPool.getStoredTransactions()
+            if (result.isNotEmpty()) {
+                val newTransactions = blockchainManager.removeUselessTransaction(result)
+                transactionPool.renewMyTransactions(newTransactions)
+                if (newTransactions.isEmpty()) {
+                    break
+                }
+                val newBlock = blockchainManager.generateNewBlock(newTransactions)
+                blockchainManager.setNewBlock(newBlock)
+                val message = cm.getMsgText(MsgType.NEW_BLOCK, toJson(newBlock))
+                cm.sendMsgToAllPeer(message)
+                transactionPool.clearMyTransactions(result.size)
+            } else {
+                println("Transaction Pool is empty ...'")
+            }
+            break
 
-        this.isBBRunning = false;
+        }
         println("Current Blockchain size ... ${blockchainManager.getMyChainLength()}")
+
+        this.flagStopBlockBuild = false
+        this.isBBRunning = false
     }
 
     /**
@@ -143,9 +153,9 @@ class ServerCore(val myHost: String, val myPort:Int, val coreNodeHost: String? =
                         if (newBlock != null && blockchainManager.isValidNewBlock(newBlock)) {
                             // ブロック生成が行われていたら、いったん停止してあげる
                             // (threadingなのでキレイに止まらない可能性あり)
-                            // TODO resolve
-                            // if self.is_bb_running:
-                            //     self.flag_stop_block_build = True
+                            if (this.isBBRunning) {
+                                this.flagStopBlockBuild = true
+                            }
                             blockchainManager.setNewBlock(newBlock)
                         } else {
                             // ブロックとして不正ではないがVerifyにコケる場合は自分がorphanブロックを生成している
