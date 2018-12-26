@@ -2,6 +2,8 @@ package nmorioka.ksbc.blockchain
 
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BlockchainManagerTest {
@@ -65,4 +67,71 @@ class BlockchainManagerTest {
 
         assertEquals(manager.getMyBlockchain(), manager.convertChain(dump))
     }
+
+    @Test
+    fun renewMyBlockChain_success() {
+        val builder = BlockBuilder()
+        val genesisBlock = builder.generateGeneisBlock()
+        val genesisBlockHash = getHash(genesisBlock)
+
+        val manager = BlockchainManager()
+
+        val transaction = mapOf(
+                "sender" to "test1",
+                "recipient" to "test2",
+                "value" to 3.toString()
+        )
+        val newBlock = builder.generateNewBlock(listOf(transaction), genesisBlockHash)
+        manager.setNewBlock(newBlock)
+
+        val manager2 = BlockchainManager()
+        manager2.setNewBlock(newBlock)
+        val newBlockHash = getHash(newBlock)
+        val transaction2 = mapOf(
+                "sender" to "test1",
+                "recipient" to "test3",
+                "value" to 2.toString()
+        )
+        val newBlock2 = builder.generateNewBlock(listOf(transaction2), newBlockHash)
+        manager2.setNewBlock(newBlock2)
+
+        val chain2 = manager2.getMyBlockchain()
+
+        assertNotNull(manager.renewMyBlockChain(chain2))
+    }
+
+
+    @Test
+    fun renewMyBlockChain_fail() {
+        val builder = BlockBuilder()
+        val genesisBlock = builder.generateGeneisBlock()
+        val genesisBlockHash = getHash(genesisBlock)
+
+        val manager = BlockchainManager()
+
+        val transaction = mapOf(
+                "sender" to "test1",
+                "recipient" to "test2",
+                "value" to 3.toString()
+        )
+        val newBlock = builder.generateNewBlock(listOf(transaction), genesisBlockHash)
+        manager.setNewBlock(newBlock)
+
+        val manager2 = BlockchainManager()
+        manager2.setNewBlock(newBlock)
+        val newBlockHash = getHash(newBlock)
+        val transaction2 = mapOf(
+                "sender" to "test1",
+                "recipient" to "test3",
+                "value" to 2.toString()
+        )
+        val newBlock2 = builder.generateNewBlock(listOf(transaction2), newBlockHash + "a")
+        manager2.setNewBlock(newBlock2)
+
+        val chain2 = manager2.getMyBlockchain()
+
+        assertNull(manager.renewMyBlockChain(chain2))
+    }
+
+
 }

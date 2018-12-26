@@ -68,23 +68,6 @@ class BlockchainManager() {
         }
     }
 
-    /**
-     * ブロックチェーン自体を更新し、それによって変更されるはずの最新のprev_block_hashを計算して返却する
-     */
-    fun renewMyBlockChain(chain: List<Block>): String? {
-        synchronized(lock) {
-            if (isValidChain(chain)) {
-                myChain.clear()
-                myChain.addAll(chain)
-                this.prevBlockHash =  getHash(myChain.last())
-                return this.prevBlockHash
-            } else {
-                println("invalid myChain cannot be set...")
-                return null
-            }
-        }
-    }
-
     fun getMyBlockchain(): List<Block> {
         if (myChain.isEmpty()) {
             return listOf()
@@ -107,6 +90,23 @@ class BlockchainManager() {
 
     fun isValidNewBlock(block: Block): Boolean {
         return isValidBlock(block, this.prevBlockHash)
+    }
+
+    /**
+     * ブロックチェーン自体を更新し、それによって変更されるはずの最新のprev_block_hashを計算して返却する
+     */
+    fun renewMyBlockChain(chain: List<Block>): String? {
+        synchronized(lock) {
+            if (isValidChain(chain)) {
+                myChain.clear()
+                myChain.addAll(chain)
+                this.prevBlockHash =  getHash(myChain.last())
+                return this.prevBlockHash
+            } else {
+                println("invalid myChain cannot be set...")
+                return null
+            }
+        }
     }
 
     /**
